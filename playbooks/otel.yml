@@ -1,0 +1,68 @@
+---
+- name: Manage OpenTelemetry Collector Contrib
+  hosts: "192.168.0.171"
+  become: yes
+  vars:
+    action: "install"  # Set "install" or "uninstall"
+
+  tasks:
+    - name: Install OpenTelemetry Collector Contrib on Rocky (only when action is set to 'install')
+      when: action == "install"
+      block:
+        - name: Download OpenTelemetry Collector Contrib RPM
+          ansible.builtin.get_url:
+            url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.111.0/otelcol-contrib_0.111.0_linux_amd64.rpm"
+            dest: /tmp/otelcol-contrib_0.111.0_linux_amd64.rpm
+
+        - name: Install OpenTelemetry Collector Contrib
+          ansible.builtin.dnf:
+            name: "/tmp/otelcol-contrib_0.111.0_linux_amd64.rpm"
+            state: present
+
+        - name: Verify OpenTelemetry Collector Contrib version
+          ansible.builtin.command:
+            cmd: "otelcol-contrib --version"
+          register: otelcol_version_output
+          ignore_errors: yes
+
+        - name: Print version information
+          ansible.builtin.debug:
+            msg: "{{ otelcol_version_output.stdout }}"
+
+        - name: Ensure OpenTelemetry Collector Contrib service is enabled and started
+          ansible.builtin.systemd:
+            name: otelcol-contrib
+            enabled: yes
+            state: started
+
+        - name: Restart OpenTelemetry Collector Contrib
+          ansible.builtin.systemd:
+            name: otelcol-contrib
+            state: restarted
+
+    - name: Uninstall OpenTelemetry Collector Contrib on Rocky (only when action is set to 'uninstall')
+      when: action == "uninstall"
+      block:
+        - name: Stop OpenTelemetry Collector Contrib service
+          ansible.builtin.systemd:
+            name: otelcol-contrib
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Remove OpenTelemetry Collector Contrib RPM
+          ansible.builtin.dnf:
+            name: otelcol-contrib
+            state: absent
+
+        - name: Remove OpenTelemetry Collector Contrib service file
+          ansible.builtin.file:
+            path: /etc/systemd/system/otelcol-contrib.service
+            state: absent
+            force: yes
+
+        - name: Remove otelcol-contrib from /usr/local/bin (if present)
+          ansible.builtin.file:
+            path: "/usr/local/bin/otelcol-contrib"
+            state: absent
+            force: yes

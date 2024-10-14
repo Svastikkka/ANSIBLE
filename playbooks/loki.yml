@@ -1,0 +1,76 @@
+---
+- name: Install Loki
+  hosts: 192.168.0.171
+  become: yes
+  vars:
+    action: "install"
+
+  tasks:
+    - name: Install Loki on Rocky (only when action is set to 'install')
+      when: action == "install"
+      block:
+        - name: Download and import Grafana GPG key
+          ansible.builtin.get_url:
+            url: https://rpm.grafana.com/gpg.key
+            dest: /tmp/grafana.gpg.key
+
+        - name: Import GPG key
+          ansible.builtin.rpm_key:
+            state: present
+            key: /tmp/grafana.gpg.key
+
+        - name: Create Grafana yum repository
+          ansible.builtin.copy:
+            dest: /etc/yum.repos.d/grafana.repo
+            content: |
+              [grafana]
+              name=grafana
+              baseurl=https://rpm.grafana.com
+              repo_gpgcheck=1
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://rpm.grafana.com/gpg.key
+              sslverify=1
+              sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+        - name: Install Loki
+          ansible.builtin.dnf:
+            name:  loki-3.2.0
+            state: present
+
+        - name: Copy updated configuration file
+          copy:
+            content: "{{ lookup('file', './files/loki-config.yml') }}"
+            dest: "/etc/loki/loki-config.yml"
+
+        - name: Ensure Loki service is enabled and started
+          ansible.builtin.systemd:
+            name: loki
+            enabled: yes
+            state: restarted
+
+    - name: Uninstall Loki on Rocky (only when action is set to 'uninstall')
+      when: action == "uninstall"
+      block:
+        - name: Stop Loki service using systemctl
+          ansible.builtin.systemd:
+            name: loki
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Stop Loki service using service command
+          ansible.builtin.command:
+            cmd: "service loki stop"
+          ignore_errors: yes
+
+        - name: Remove Loki package
+          ansible.builtin.dnf:
+            name: loki
+            state: absent
+
+        - name: Remove Grafana repository file
+          ansible.builtin.file:
+            path: /etc/yum.repos.d/grafana.repo
+            state: absent
+            force: yes

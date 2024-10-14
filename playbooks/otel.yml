@@ -3,7 +3,7 @@
   hosts: "192.168.0.171"
   become: yes
   vars:
-    action: "install"  # Set "install" or "uninstall"
+    action: "install"
 
   tasks:
     - name: Install OpenTelemetry Collector Contrib on Rocky (only when action is set to 'install')

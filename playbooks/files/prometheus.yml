@@ -1,15 +1,26 @@
-apiVersion: 1
+scrape_configs:
+  - job_name: 'telegraf'
+    static_configs:
+      - targets: ['telegraf:9273']
 
-datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    # Access mode - proxy (server in the UI) or direct (browser in the UI).
-    url: http://192.168.0.171:9090/
-    jsonData:
-      httpMethod: POST
-      manageAlerts: true
-      prometheusType: Prometheus
-      prometheusVersion: 2.42.0
-      cacheLevel: 'High'
-      disableRecordingRules: false
+  - job_name: grafana1
+    honor_timestamps: true
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: http
+    follow_redirects: true
+    static_configs:
+      - targets:
+          - grafana1:3000
+
+  - job_name: grafana2
+    honor_timestamps: true
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: http
+    follow_redirects: true
+    static_configs:
+      - targets:
+          - grafana2:3000

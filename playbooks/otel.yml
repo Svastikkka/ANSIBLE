@@ -18,6 +18,7 @@
           ansible.builtin.dnf:
             name: "/tmp/otelcol-contrib_0.111.0_linux_amd64.rpm"
             state: present
+            disable_gpg_check: true
 
         - name: Verify OpenTelemetry Collector Contrib version
           ansible.builtin.command:

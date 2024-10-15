@@ -65,25 +65,27 @@
     - name: Uninstall Grafana on Rocky (only when action is set to 'uninstall')
       when: action == "uninstall"
       block:
-        - name: Stop Grafana service using systemctl
-          ansible.builtin.systemd:
-            name: grafana-server
+        - name: Stop VictoriaMetrics service
+          systemd:
+            name: victoria-metrics
             state: stopped
+
+        - name: Disable VictoriaMetrics service
+          systemd:
+            name: victoria-metrics
             enabled: no
-          ignore_errors: yes
 
-        - name: Stop Grafana service using service command
-          ansible.builtin.command:
-            cmd: "service grafana-server stop"
-          ignore_errors: yes
-
-        - name: Remove Grafana package
-          ansible.builtin.dnf:
-            name: grafana
+        - name: Remove VictoriaMetrics binary
+          file:
+            path: "/usr/local/bin/victoria-metrics-prod"
             state: absent
 
-        - name: Remove Grafana repository file
-          ansible.builtin.file:
-            path: /etc/yum.repos.d/grafana.repo
+        - name: Remove VictoriaMetrics configuration file
+          file:
+            path: "/etc/victoria-metrics/prometheus.yml"
             state: absent
-            force: yes
+
+        - name: Remove VictoriaMetrics data directory
+          file:
+            path: "{{ victoria_metrics_data_dir }}"
+            state: absent

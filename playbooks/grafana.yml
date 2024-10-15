@@ -56,8 +56,8 @@
 
         - name: Copy updated configuration file
           copy:
-            content: "{{ lookup('file', './files/prometheus.yml') }}"
-            dest: "/etc/grafana/provisioning/datasources/prometheus.yml"
+            content: "{{ lookup('file', './files/datasource.yml') }}"
+            dest: "/etc/grafana/provisioning/datasources/datasource.yml"
 
         - name: Restart Grafana
           ansible.builtin.systemd:

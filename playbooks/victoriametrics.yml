@@ -4,9 +4,6 @@
   become: yes
   vars:
     action: "install"
-    victoriametrics_version: "1.104.0"
-    download_url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.104.0/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
-
   tasks:
     - name: Install Grafana on Rocky (only when action is set to 'install')
       when: action == "install"

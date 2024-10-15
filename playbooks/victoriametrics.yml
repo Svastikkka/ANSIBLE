@@ -1,0 +1,91 @@
+---
+- name: Install Grafana
+  hosts: 192.168.0.171
+  become: yes
+  vars:
+    action: "install"
+    victoriametrics_version: "1.104.0"
+    download_url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.104.0/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
+
+  tasks:
+    - name: Install Grafana on Rocky (only when action is set to 'install')
+      when: action == "install"
+      block:
+        - name: Download VictoriaMetrics
+          ansible.builtin.get_url:
+            url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.104.0/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
+            dest: "/tmp/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
+
+        - name: Extract VictoriaMetrics
+          unarchive:
+            src: "/tmp/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
+            dest: "/usr/local/bin"
+            remote_src: yes
+
+        - name: Set VictoriaMetrics configuration file
+          copy:
+            src: "config/prometheus.yml"
+            dest: "/etc/victoria-metrics/prometheus.yml"
+
+        - name: Create systemd service for VictoriaMetrics
+          copy:
+            dest: /etc/systemd/system/victoria-metrics.service
+            content: |
+              [Unit]
+              Description=VictoriaMetrics
+              Wants=network-online.target
+              After=network-online.target
+        
+              [Service]
+              User=victoria_metrics
+              Group=victoria_metrics
+              ExecStart=/usr/local/bin/victoria-metrics-prod -storageDataPath=/monitoring/victoria-metrics-data -promscrape.config=/etc/victoria-metrics/prometheus.yml
+              Restart=always
+        
+              [Install]
+              WantedBy=multi-user.target
+          when: not uninstall_victoriametrics
+          
+
+        - name: Reload systemd
+          command: systemctl daemon-reload
+        
+        - name: Clean up temporary files
+          file:
+            path: "/tmp/victoria-metrics-linux-amd64-v1.104.0.tar.gz"
+            state: absent
+
+        - name: Check VictoriaMetrics service status
+          command: systemctl status victoria-metrics
+          register: victoriametrics_status
+          ignore_errors: yes
+
+        - debug:
+            var: victoriametrics_status.stdout
+
+
+    - name: Uninstall Grafana on Rocky (only when action is set to 'uninstall')
+      when: action == "uninstall"
+      block:
+        - name: Stop Grafana service using systemctl
+          ansible.builtin.systemd:
+            name: grafana-server
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Stop Grafana service using service command
+          ansible.builtin.command:
+            cmd: "service grafana-server stop"
+          ignore_errors: yes
+
+        - name: Remove Grafana package
+          ansible.builtin.dnf:
+            name: grafana
+            state: absent
+
+        - name: Remove Grafana repository file
+          ansible.builtin.file:
+            path: /etc/yum.repos.d/grafana.repo
+            state: absent
+            force: yes

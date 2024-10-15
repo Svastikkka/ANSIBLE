@@ -1,5 +1,5 @@
 ---
-- name: Install Grafana
+- name: Install VictoriaMetrics
   hosts: 192.168.0.171
   become: yes
   vars:
@@ -19,9 +19,15 @@
             dest: "/usr/local/bin"
             remote_src: yes
 
+        - name: Ensure /etc/victoria-metrics directory exists
+          ansible.builtin.file:
+            path: /etc/victoria-metrics
+            state: directory
+            mode: '0755'
+
         - name: Set VictoriaMetrics configuration file
           copy:
-            src: "config/prometheus.yml"
+            src: "files/prometheus.yml"
             dest: "/etc/victoria-metrics/prometheus.yml"
 
         - name: Create systemd service for VictoriaMetrics
@@ -84,5 +90,5 @@
 
         - name: Remove VictoriaMetrics data directory
           file:
-            path: "{{ victoria_metrics_data_dir }}"
+            path: "/monitoring/victoria-metrics-data"
             state: absent

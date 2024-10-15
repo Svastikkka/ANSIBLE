@@ -44,8 +44,6 @@
         
               [Install]
               WantedBy=multi-user.target
-          when: not uninstall_victoriametrics
-          
 
         - name: Reload systemd
           command: systemctl daemon-reload

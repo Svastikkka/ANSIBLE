@@ -1,0 +1,91 @@
+---
+- name: Install Grafana
+  hosts: 192.168.0.123
+  become: yes
+  vars:
+    action: "install"
+
+  tasks:
+    - name: Install Grafana on Rocky (only when action is set to 'install')
+      when: action == "install"
+      block:
+        - name: Download and import Grafana GPG key
+          ansible.builtin.get_url:
+            url: https://rpm.grafana.com/gpg.key
+            dest: /tmp/grafana.gpg.key
+
+        - name: Import GPG key
+          ansible.builtin.rpm_key:
+            state: present
+            key: /tmp/grafana.gpg.key
+
+        - name: Create Grafana yum repository
+          ansible.builtin.copy:
+            dest: /etc/yum.repos.d/grafana.repo
+            content: |
+              [grafana]
+              name=grafana
+              baseurl=https://rpm.grafana.com
+              repo_gpgcheck=1
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://rpm.grafana.com/gpg.key
+              sslverify=1
+              sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+        - name: Install Grafana
+          ansible.builtin.dnf:
+            name:  grafana-11.2.1-1.x86_64
+            state: present
+
+        - name: Copy updated configuration file
+          copy:
+            content: "{{ lookup('file', './files/grafana.ini') }}"
+            dest: "/etc/grafana/grafana.ini"
+
+        - name: Ensure Grafana service is enabled and started
+          ansible.builtin.systemd:
+            name: grafana-server
+            enabled: yes
+            state: started
+
+        - name: Set admin password
+          ansible.builtin.command:
+            cmd: "grafana-cli admin reset-admin-password example"
+          become: yes
+
+        - name: Copy updated configuration file
+          copy:
+            content: "{{ lookup('file', './files/datasource.yml') }}"
+            dest: "/etc/grafana/provisioning/datasources/datasource.yml"
+
+        - name: Restart Grafana
+          ansible.builtin.systemd:
+            name: grafana-server
+            state: restarted
+
+    - name: Uninstall Grafana on Rocky (only when action is set to 'uninstall')
+      when: action == "uninstall"
+      block:
+        - name: Stop Grafana service using systemctl
+          ansible.builtin.systemd:
+            name: grafana-server
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Stop Grafana service using service command
+          ansible.builtin.command:
+            cmd: "service grafana-server stop"
+          ignore_errors: yes
+
+        - name: Remove Grafana package
+          ansible.builtin.dnf:
+            name: grafana
+            state: absent
+
+        - name: Remove Grafana repository file
+          ansible.builtin.file:
+            path: /etc/yum.repos.d/grafana.repo
+            state: absent
+            force: yes

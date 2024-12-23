@@ -1,0 +1,89 @@
+---
+- name: Manage PostgreSQL
+  hosts: all
+  become: true
+  vars:
+    action: "install"  # Set to "uninstall" for removal tasks
+    postgres_user: postgres
+    postgres_home: /var/lib/pgsql
+    postgres_service: postgresql
+    postgres_packages:
+      - @postgresql
+
+  tasks:
+    - name: Install PostgreSQL
+      when: action == "install"
+      block:
+        - name: Install PostgreSQL packages
+          dnf:
+            name: "{{ postgres_packages }}"
+            state: present
+
+        - name: Add PostgreSQL user
+          user:
+            name: "{{ postgres_user }}"
+            shell: /bin/bash
+            create_home: true
+
+        - name: Initialize PostgreSQL database
+          command: /usr/bin/postgresql-setup --initdb
+          args:
+            creates: "{{ postgres_home }}/data"
+
+        - name: Change ownership of PostgreSQL data directory
+          file:
+            path: "{{ postgres_home }}"
+            owner: "{{ postgres_user }}"
+            group: "{{ postgres_user }}"
+            recurse: true
+
+        - name: Enable PostgreSQL service
+          systemd:
+            name: "{{ postgres_service }}"
+            enabled: true
+
+        - name: Start PostgreSQL service
+          systemd:
+            name: "{{ postgres_service }}"
+            state: started
+
+        - name: Configure pg_hba.conf for password authentication
+          blockinfile:
+            path: "{{ postgres_home }}/data/pg_hba.conf"
+            insertafter: EOF
+            block: |
+              # Allow local password authentication for postgres user
+              local   all             postgres                                md5
+
+        - name: Restart PostgreSQL to apply changes
+          systemd:
+            name: "{{ postgres_service }}"
+            state: restarted
+
+    - name: Uninstall PostgreSQL (when action is "uninstall")
+      when: action == "uninstall"
+      block:
+        - name: Stop PostgreSQL service
+          systemd:
+            name: "{{ postgres_service }}"
+            state: stopped
+
+        - name: Disable PostgreSQL service
+          systemd:
+            name: "{{ postgres_service }}"
+            enabled: no
+
+        - name: Remove PostgreSQL packages
+          dnf:
+            name: "{{ postgres_packages }}"
+            state: absent
+
+        - name: Remove PostgreSQL user
+          user:
+            name: "{{ postgres_user }}"
+            state: absent
+
+        - name: Remove PostgreSQL data directory
+          file:
+            path: "{{ postgres_home }}"
+            state: absent
